@@ -41,4 +41,33 @@ input_config, dict_input = load_input("Input configuration.xlsx")
 
 allocation_data = input_config[input_config.index.isna()==False]
 asset_dict=OrderedDict(zip(allocation_data.index,allocation_data['Asset Class']))
-print(list(asset_dict.keys()))
+print(asset_dict)
+
+def collect_inputs(input_config,cma_stat):
+
+    alloc_data = input_config[input_config.index.isna()==False]
+    asset_dict=OrderedDict(zip(alloc_data.index,alloc_data['Title']))
+
+    # get a list of all the 'proper' names
+    asset_list= list(asset_dict.keys())
+    columns = input_config.columns.tolist()
+
+    # Collect alloc and params
+    initial_allocation = np.array(alloc_data['Initial Allocation'])
+    benchmark = np.array(alloc_data['Liability'])
+    allocation_minima = np.array(alloc_data['Min Allocation'])
+    allocation_maxima = np.array(alloc_data['Max Allocation'])
+
+    active = {}
+    active['annual cost']=-np.array(alloc_data['fees'])
+    active['alpha']=np.array(alloc_data['alpha'])
+
+    # collect group portfolio constraints
+
+
+    return asset_list,columns
+
+a,b=collect_inputs(input_config,dict_input['cma_stat'])
+
+print(a)
+print(b)
