@@ -3,7 +3,7 @@ import math
 import numpy as np
 import pandas as pd
 from collections import OrderedDict
-
+from scipy.optimize import minimize, Bounds, LinearConstraint
 
 ########## Load and Process user DATA Function #######
 
@@ -146,6 +146,39 @@ def initial_stats(input_config,dict_input):
     print(ptf_ret_Arith)
     print(ptf_ret_geo)
 
+
+
+def MVO(input_config,dict_input):
+
+    inputs = collect_inputs(input_config,dict_input)
+    cov=inputs['cov'].to_numpy()
+    exp_ret = inputs['arith_ret'].to_numpy()
+    W = np.ones(len(exp_ret))
+
+    x=optimize_MVO(ret_risk,W,exp_ret,cov,target_return=0.015)
+    print (x*100)
+    print(x@exp_ret)
+    print((x.T@cov@x)**0.5)
+
+# Optimization logic using SLSQP SCIPY
+def optimize_MVO(func, W, exp_ret, cov, target_return):
+
+    opt_bounds = Bounds(0,1)
+    opt_constraints = ( {'type':'eq',
+                         'fun':lambda W:1.0 - np.sum(W)},
+                        {'type':'eq',
+                         'fun':lambda W: target_return-W.T@exp_ret})
+    optimal_weights = minimize(func,W,args=(exp_ret,cov),method='SLSQP',bounds=opt_bounds,constraints=opt_constraints)
+    return optimal_weights['x']
+
+# Function to optimize
+
+def ret_risk(W,exp_ret,cov):
+
+    return -((W.T@exp_ret)/(W.T@cov@W)**0.5)
+
+
+
 #a=collect_inputs(input_config,dict_input)
-b = initial_stats(input_config,dict_input)
+b = MVO(input_config,dict_input)
 
