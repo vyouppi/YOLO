@@ -8,7 +8,6 @@ from IPython.display import display
 from tabulate import tabulate
 
 
-
 ########## Load and Process user DATA Function #######
 
 
@@ -60,12 +59,7 @@ def select_input_assets(inputs, dict_data):
 
 
 input_config, dict_input = load_input("Input configuration.xlsx")
-#print(list(input_config))
 
-#allocation_data = input_config[input_config['Title']!='none']
-#asset_dict=OrderedDict(zip(allocation_data.index,allocation_data['Asset Class']))
-#print(input_config[input_config['Title']!='none'])
-#print(allocation_data)
 
 def collect_inputs(input_config, dict_data):
 
