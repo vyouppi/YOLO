@@ -4,6 +4,10 @@ import numpy as np
 import pandas as pd
 from collections import OrderedDict
 from scipy.optimize import minimize, Bounds, LinearConstraint
+from IPython.display import display
+from tabulate import tabulate
+
+
 
 ########## Load and Process user DATA Function #######
 
@@ -139,35 +143,71 @@ def initial_stats(input_config,dict_input):
     init_alloc = inputs['initial_allocation'] # array numpy
 
     ptf_vol=math.sqrt(init_alloc.T.dot(cov).dot(init_alloc))
-    ptf_ret_Arith=init_alloc.dot(arith)
+    ptf_ret_Arith = init_alloc.dot(arith)
     ptf_ret_geo = convert_arith_to_geo(ptf_ret_Arith,ptf_vol)
+    ptf_SR = ptf_ret_geo/ptf_vol
 
-    print(ptf_vol)
-    print(ptf_ret_Arith)
-    print(ptf_ret_geo)
+    ptf={'ret_arith':ptf_ret_Arith,
+         'ret_geo':ptf_ret_geo,
+         'weight':init_alloc,
+         'vol':ptf_vol,
+         'SR':ptf_SR
+         }
+    return ptf
 
 
-
-def MVO(input_config,dict_input):
+def MVO(input_config,dict_input,targetret):
 
     inputs = collect_inputs(input_config,dict_input)
     cov=inputs['cov'].to_numpy()
     exp_ret = inputs['arith_ret'].to_numpy()
     W = np.ones(len(exp_ret))
 
-    x=optimize_MVO(ret_risk,W,exp_ret,cov,target_return=0.015)
-    print (x*100)
-    print(x@exp_ret)
-    print((x.T@cov@x)**0.5)
+    # Optimized weight
+    x=optimize_MVO(ret_risk,W,exp_ret,cov,target_return=targetret)
+
+    # portfolio return and volatility
+
+    ptf_ret_arith = x@exp_ret
+
+    ptf_weight=np.round(x,decimals=4)
+    ptf_vol=(x.T@cov@x)**0.5
+    ptf_ret_geo = convert_arith_to_geo(ptf_ret_arith,ptf_vol)
+    ptf_SR = ptf_ret_geo/ptf_vol
+    ptf_asset_class = input_config[input_config['Title'] != 'none']['Asset Class']
+    ptf={'ret_arith':ptf_ret_arith*100,
+         'ret_geo':ptf_ret_geo*100,
+         'weight':ptf_weight*100,
+         'vol':ptf_vol*100,
+         'asset_class': ptf_asset_class.to_numpy(),
+         'SR':ptf_SR
+         }
+    return ptf
+
+def MVO_frontier(input_config,dict_input,targetret):
+
+    ptf_outputs=targetret
+    i=0
+    for tgt in targetret:
+        i+=1
+        ptf= MVO(input_config,dict_input,tgt)
+        ptf_outputs[i-1]=ptf
+
+    return ptf_outputs
+
+
 
 # Optimization logic using SLSQP SCIPY
+
+
 def optimize_MVO(func, W, exp_ret, cov, target_return):
+
 
     opt_bounds = Bounds(0,1)
     opt_constraints = ( {'type':'eq',
                          'fun':lambda W:1.0 - np.sum(W)},
                         {'type':'eq',
-                         'fun':lambda W: target_return-W.T@exp_ret})
+                         'fun':lambda W: target_return-0*W.T@exp_ret-1*(W.T@cov@W)**0.5})
     optimal_weights = minimize(func,W,args=(exp_ret,cov),method='SLSQP',bounds=opt_bounds,constraints=opt_constraints)
     return optimal_weights['x']
 
@@ -177,8 +217,29 @@ def ret_risk(W,exp_ret,cov):
 
     return -((W.T@exp_ret)/(W.T@cov@W)**0.5)
 
+# defining a print out function for the efficient frontier results
+def print_output(stats,nb_step):
 
+    # Aggregate Asset Allocation
+    list={}
+    list['asset_class']=stats[0]['asset_class']
+    # Aggregate stats
+    list2={}
+    list2['Metric']=['ret_arith','ret_geo','vol','SR']
+
+    # Gather the data for both list
+    for i in range(nb_step):
+        list.update({'Asset Allocation'+str(i+1):stats[i]['weight']})
+        list2.update({'Asset Allocation'+str(i+1):[stats[i]['ret_arith'],stats[i]['ret_geo'],stats[i]['vol'],stats[i]['SR']]})
+    print(tabulate(pd.DataFrame(list), headers='keys', tablefmt='psql'))
+    print(tabulate(pd.DataFrame(list2), headers='keys', tablefmt='psql'))
 
 #a=collect_inputs(input_config,dict_input)
-b = MVO(input_config,dict_input)
+b = MVO_frontier(input_config,dict_input, [0.01,0.03,0.05,0.07,0.09])
+a=initial_stats(input_config,dict_input)
+
+c={'asset_class':b[0]['asset_class'],'weight':b[0]['weight']}
+#print(pd.DataFrame(c))
+print('***********')
+print_output(b,5)
 
